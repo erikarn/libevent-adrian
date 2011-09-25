@@ -149,7 +149,7 @@ static void
 send_document_cb(struct evhttp_request *req, void *arg)
 {
 	struct evbuffer *evb = NULL;
-	const char *docroot = arg;
+	const char *docroot = "ROOT";
 	const char *uri = evhttp_request_get_uri(req);
 	struct evhttp_uri *decoded = NULL;
 	const char *path;
@@ -182,12 +182,6 @@ send_document_cb(struct evhttp_request *req, void *arg)
 	decoded_path = evhttp_uridecode(path, 0, NULL);
 	if (decoded_path == NULL)
 		goto err;
-	/* Don't allow any ".."s in the path, to avoid exposing stuff outside
-	 * of the docroot.  This test is both overzealous and underzealous:
-	 * it forbids aceptable paths like "/this/one..here", but it doesn't
-	 * do anything to prevent symlink following." */
-	if (strstr(decoded_path, ".."))
-		goto err;
 
 	len = strlen(decoded_path)+strlen(docroot)+2;
 	if (!(whole_path = malloc(len))) {
@@ -196,99 +190,10 @@ send_document_cb(struct evhttp_request *req, void *arg)
 	}
 	evutil_snprintf(whole_path, len, "%s/%s", docroot, decoded_path);
 
-	if (stat(whole_path, &st)<0) {
-		goto err;
-	}
-
 	/* This holds the content we're sending. */
 	evb = evbuffer_new();
 
-	if (S_ISDIR(st.st_mode)) {
-		/* If it's a directory, read the comments and make a little
-		 * index page */
-#ifdef _WIN32
-		HANDLE d;
-		WIN32_FIND_DATAA ent;
-		char *pattern;
-		size_t dirlen;
-#else
-		DIR *d;
-		struct dirent *ent;
-#endif
-		const char *trailing_slash = "";
-
-		if (!strlen(path) || path[strlen(path)-1] != '/')
-			trailing_slash = "/";
-
-#ifdef _WIN32
-		dirlen = strlen(whole_path);
-		pattern = malloc(dirlen+3);
-		memcpy(pattern, whole_path, dirlen);
-		pattern[dirlen] = '\\';
-		pattern[dirlen+1] = '*';
-		pattern[dirlen+2] = '\0';
-		d = FindFirstFileA(pattern, &ent);
-		free(pattern);
-		if (d == INVALID_HANDLE_VALUE)
-			goto err;
-#else
-		if (!(d = opendir(whole_path)))
-			goto err;
-#endif
-
-		evbuffer_add_printf(evb, "<html>\n <head>\n"
-		    "  <title>%s</title>\n"
-		    "  <base href='%s%s%s'>\n"
-		    " </head>\n"
-		    " <body>\n"
-		    "  <h1>%s</h1>\n"
-		    "  <ul>\n",
-		    decoded_path, /* XXX html-escape this. */
-		    uri_root, path, /* XXX html-escape this? */
-		    trailing_slash,
-		    decoded_path /* XXX html-escape this */);
-#ifdef _WIN32
-		do {
-			const char *name = ent.cFileName;
-#else
-		while ((ent = readdir(d))) {
-			const char *name = ent->d_name;
-#endif
-			evbuffer_add_printf(evb,
-			    "    <li><a href=\"%s\">%s</a>\n",
-			    name, name);/* XXX escape this */
-#ifdef _WIN32
-		} while (FindNextFileA(d, &ent));
-#else
-		}
-#endif
-		evbuffer_add_printf(evb, "</ul></body></html>\n");
-#ifdef _WIN32
-		CloseHandle(d);
-#else
-		closedir(d);
-#endif
-		evhttp_add_header(evhttp_request_get_output_headers(req),
-		    "Content-Type", "text/html");
-	} else {
-		/* Otherwise it's a file; add it to the buffer to get
-		 * sent via sendfile */
-		const char *type = guess_content_type(decoded_path);
-		if ((fd = open(whole_path, O_RDONLY)) < 0) {
-			perror("open");
-			goto err;
-		}
-
-		if (fstat(fd, &st)<0) {
-			/* Make sure the length still matches, now that we
-			 * opened the file :/ */
-			perror("fstat");
-			goto err;
-		}
-		evhttp_add_header(evhttp_request_get_output_headers(req),
-		    "Content-Type", type);
-		evbuffer_add_file(evb, fd, 0, st.st_size);
-	}
+	/* .. and just send the empty reply */
 
 	evhttp_send_reply(req, 200, "OK", evb);
 	goto done;
@@ -307,12 +212,6 @@ done:
 		evbuffer_free(evb);
 }
 
-static void
-syntax(void)
-{
-	fprintf(stdout, "Syntax: http-server <docroot>\n");
-}
-
 int
 main(int argc, char **argv)
 {
@@ -320,7 +219,7 @@ main(int argc, char **argv)
 	struct evhttp *http;
 	struct evhttp_bound_socket *handle;
 
-	unsigned short port = 0;
+	unsigned short port = 3128;
 #ifdef _WIN32
 	WSADATA WSAData;
 	WSAStartup(0x101, &WSAData);
@@ -328,10 +227,6 @@ main(int argc, char **argv)
 	if (signal(SIGPIPE, SIG_IGN) == SIG_ERR)
 		return (1);
 #endif
-	if (argc < 2) {
-		syntax();
-		return 1;
-	}
 
 	base = event_base_new();
 	if (!base) {
@@ -351,7 +246,7 @@ main(int argc, char **argv)
 
 	/* We want to accept arbitrary requests, so we need to set a "generic"
 	 * cb.  We can also add callbacks for specific paths. */
-	evhttp_set_gencb(http, send_document_cb, argv[1]);
+	evhttp_set_gencb(http, send_document_cb, NULL);
 
 	/* Now we tell the evhttp what port to listen on */
 	handle = evhttp_bind_socket_with_handle(http, "0.0.0.0", port);
