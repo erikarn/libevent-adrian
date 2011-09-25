@@ -112,7 +112,7 @@ else
 noinst_LTLIBRARIES =  $(LIBEVENT_LIBS_LA)
 endif
 
-SUBDIRS = . include sample test
+SUBDIRS = . include sample test lusca
 
 if BUILD_WIN32
 
