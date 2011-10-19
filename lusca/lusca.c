@@ -220,7 +220,7 @@ inform_error(struct evhttp_request *request,
 	    "Could not complete request to <b>http://%s/</b>."
 	    "%s"
 	    "<p>"
-	    "You are using SpyBye %s."
+	    "You are using Lusca 2.0-alpha %s."
 	    "</div>"
 	    "</body></html>",
 	    error_title, error_title,
@@ -246,12 +246,7 @@ inform_no_referer(struct evhttp_request *request)
 	    "width: 40%%; "
 	    "background-color: #dcdcee; font-family: Verdana, Arial;\">"
 	    "<h2>Request Denied</h2>\n"
-	    "To use <i>SpyBye</i>, visit "
-	    "<a href=\"http://spybye.org/\">http://spybye.org/</a> "
-	    "or go to <a href=\"http://spybye.org/?url=%s\">%s</a> "
-	    "using SpyBye.</div><p>"
-	    "</body></html>",
-	    escaped, html_escaped);
+	    "</body></html>");
 	free(escaped);
 	free(html_escaped);
 
