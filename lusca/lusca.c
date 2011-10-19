@@ -358,6 +358,7 @@ dispatch_single_request(struct dns_cache *dns, struct proxy_request *pr)
 {
 	struct evhttp_request *request;
 	char *address = inet_ntoa(dns->addresses[0]);
+	const char *host = NULL;
 
 	assert(pr->evcon == NULL);
 	pr->evcon = evhttp_connection_base_new(ev_base, dns_base,
@@ -372,6 +373,14 @@ dispatch_single_request(struct dns_cache *dns, struct proxy_request *pr)
 	request = evhttp_request_new(http_request_done, pr);
 	if (request == NULL)
 		goto fail;
+
+	host = evhttp_request_get_host(pr->req);
+	if (host != NULL) {
+		evhttp_remove_header(request->output_headers,
+		    "Host");
+		evhttp_add_header(request->output_headers,
+		    "Host", host);
+	}
 
 	http_copy_headers(request->output_headers, pr->req->input_headers);
 	evhttp_add_header(request->output_headers,
