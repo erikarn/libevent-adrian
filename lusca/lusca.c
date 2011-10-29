@@ -410,7 +410,7 @@ dispatch_single_request(struct dns_cache *dns, struct proxy_request *pr)
 	/* XXX what about other request types w/ request bodies? */
 	if (pr->req->type == EVHTTP_REQ_POST)
 		evbuffer_add_buffer(request->output_buffer,
-		    pr->req->output_buffer);
+		    pr->req->input_buffer);
 
 	evhttp_add_header(request->output_headers, "Connection", "close");
 	/* We want the reply data chunked */
