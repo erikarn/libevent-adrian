@@ -453,19 +453,25 @@ dispatch_single_request(struct dns_cache *dns, struct proxy_request *pr)
 	if (request == NULL)
 		goto fail;
 
+	/* Copy over the relevant headers from the request */
+	http_copy_headers(request->output_headers, pr->req->input_headers);
+
+	/*
+	 * The request may not have a Host header but has a complete
+	 * request URL. If it doesn't, add it.
+	 */
 	host = evhttp_request_get_host(pr->req);
 	if (host != NULL) {
 		evhttp_remove_header(request->output_headers,
 		    "Host");
-		evhttp_add_header(request->output_headers,
-		    "Host", host);
+		evhttp_add_header(request->output_headers, "Host", host);
 	}
 
-	http_copy_headers(request->output_headers, pr->req->input_headers);
 	evhttp_add_header(request->output_headers,
 	    "X-Forwarded-For", pr->req->remote_host);
 
 	/* for post requests, we might have to add the buffer */
+	/* XXX what about other request types w/ request bodies? */
 	if (pr->req->type == EVHTTP_REQ_POST)
 		evbuffer_add_buffer(request->output_buffer,
 		    pr->req->output_buffer);
