@@ -127,7 +127,7 @@ http_server_chunk_cb(struct evhttp_request *req, void *arg)
 	struct evbuffer *eb;
 	struct proxy_request *pr = arg;
 
-	printf("%s: called\n", __func__);
+	DNFPRINTF(10, (stderr, "%s: req=%p, pr=%p\n", __func__, req, pr));
 
 	if (pr->first_chunk == 0)
 		if (http_request_first_chunk(req, pr) == 0)
@@ -290,7 +290,7 @@ http_request_complete(struct evhttp_request *req, void *arg)
 {
 	struct proxy_request *pr = arg;
 
-	printf("%s: called\n", __func__);
+	DNFPRINTF(10, (stderr, "%s: pr=%p\n", __func__, pr));
 
 	if (req == NULL || req->response_code == 0) {
 		/* potential request timeout; unreachable machine, etc. */
@@ -317,7 +317,8 @@ http_request_first_chunk(struct evhttp_request *req, void *arg)
 {
 	struct proxy_request *pr = arg;
 
-	printf("%s: called; first_chunked=%d\n", __func__, pr->first_chunk);
+	DNFPRINTF(10, (stderr, "%s: pr=%p, first_chunked=%d\n", __func__, pr,
+	    pr->first_chunk));
 	if (pr->first_chunk == 1)
 		return 1;		/* We can continue */
 
@@ -361,7 +362,7 @@ http_send_reply(const char *result, void *arg)
 	struct proxy_request *pr = arg;
 	struct request_holder *rh = pr->holder;
 
-	printf("%s: called\n", __func__);
+	DNFPRINTF(10, (stderr, "%s: pr=%p\n", __func__, pr));
 
 	/* Setup response headers */
 	http_set_response_headers(pr);
@@ -379,7 +380,7 @@ http_set_response_headers(struct proxy_request *pr)
 	const char *content_type = NULL;
 	int ishtml = 0;
 
-	printf("%s: called\n", __func__);
+	DNFPRINTF(10, (stderr, "%s: pr=%p\n", __func__, pr));
 
 #if 0
 	log_request(LOG_INFO, pr->req, site);
@@ -436,7 +437,7 @@ dispatch_single_request(struct dns_cache *dns, struct proxy_request *pr)
 	char *address = inet_ntoa(dns->addresses[0]);
 	const char *host = NULL;
 
-	printf("%s: called\n", __func__);
+	DNFPRINTF(10, (stderr, "%s: pr=%p\n", __func__, pr));
 
 	assert(pr->evcon == NULL);
 	pr->evcon = evhttp_connection_base_new(ev_base, dns_base,
@@ -644,6 +645,9 @@ proxy_request_free_evcon(int fd, short what, void *arg)
 void
 proxy_request_free(struct proxy_request *pr)
 {
+
+	DNFPRINTF(10, (stderr, "%s: pr=%p\n", __func__, pr));
+
 	if (pr->evcon != NULL) {
 		struct timeval tv;
 		
