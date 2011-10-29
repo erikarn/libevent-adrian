@@ -1,0 +1,168 @@
+/*
+ * This is based on spybye/spybye.c, by Niels Provos.
+ */
+
+#include <sys/types.h>
+
+#ifdef HAVE_CONFIG_H
+#include "../config.h"
+#endif
+
+#include <sys/time.h>
+#include <sys/param.h>
+#include <sys/stat.h>
+#include <sys/queue.h>
+#include <sys/tree.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+#include <err.h>
+#include <unistd.h>
+#include <assert.h>
+#include <time.h>
+#include <syslog.h>
+
+#include <event.h>
+#include <event2/event.h>
+#include <event2/http.h>
+#include <event2/buffer.h>
+#include <event2/util.h>
+#include <event2/keyvalq_struct.h>
+#include <event2/event_struct.h>
+
+#include <event2/dns.h>
+#include <event2/http.h>
+#include <event2/http_struct.h>
+#include <event2/tag.h>
+
+#include "log.h"
+#include "utils.h"
+#include "dns.h"
+#include "lusca.h"	/* needed for the callback function */
+
+/* globals */
+static int allow_private_ip = 1;
+
+struct evdns_base *dns_base = NULL;
+struct event_base *dns_ev_base = NULL;
+
+static int
+dns_compare(struct dns_cache *a, struct dns_cache *b)
+{
+	return strcasecmp(a->name, b->name);
+}
+
+static SPLAY_HEAD(dns_tree, dns_cache) root;
+
+SPLAY_PROTOTYPE(dns_tree, dns_cache, node, dns_compare);
+SPLAY_GENERATE(dns_tree, dns_cache, node, dns_compare);
+
+static void
+dns_ttl_expired(int result, short what, void *arg)
+{
+	struct dns_cache *dns = arg;
+	
+	fprintf(stderr, "[DNS] Expire entry for %s\n", dns->name);
+
+	assert(TAILQ_FIRST(&dns->entries) == NULL);
+	dns_free(dns);
+}
+
+static void
+dns_resolv_cb(int result, char type, int count, int ttl,
+    void *addresses, void *arg)
+{
+	struct dns_cache *entry = arg;
+	struct timeval tv;
+
+	DNFPRINTF(1, (stderr, "[DNS] Received response for %s: %d\n",
+		entry->name, result));
+
+	if (result != DNS_ERR_NONE) {
+		/* we were not able to resolve the name */
+		dns_dispatch_error(entry);
+		return;
+	}
+
+	/* copy the addresses */
+	entry->addresses = calloc(count, sizeof(struct in_addr));
+	if (entry->addresses == NULL)
+		err(1, "calloc");
+	entry->address_count = count;
+	memcpy(entry->addresses, addresses, count * sizeof(struct in_addr));
+
+	/* Dispatch requests waiting for the given entry */
+	dns_dispatch_requests(entry);
+
+	/* expire it after its time-to-live is over */
+	evtimer_set(&entry->ev_timeout, dns_ttl_expired, entry);
+	event_base_set(dns_ev_base, &entry->ev_timeout);
+	timerclear(&tv);
+	tv.tv_sec = ttl;
+	evtimer_add(&entry->ev_timeout, &tv);
+}
+
+struct dns_cache *
+dns_new(const char *name)
+{
+	struct dns_cache *entry, tmp;
+	struct in_addr address;
+
+
+	tmp.name = (char *)name;
+	if ((entry = SPLAY_FIND(dns_tree, &root, &tmp)) != NULL)
+		return (entry);
+
+	entry = calloc(1, sizeof(struct dns_cache));
+	if (entry == NULL)
+		err(1, "calloc");
+
+	entry->name = strdup(name);
+	if (entry->name == NULL)
+		err(1, "strdup");
+
+	TAILQ_INIT(&entry->entries);
+	SPLAY_INSERT(dns_tree, &root, entry);
+
+	if (inet_aton(entry->name, &address) != 1) {
+		DNFPRINTF(1, (stderr, "[DNS] Resolving IPv4 for %s\n",
+			entry->name));
+		evdns_base_resolve_ipv4(dns_base, entry->name, 0,
+		    dns_resolv_cb, entry);
+	} else {
+		/* this request is dangerous */
+		if (!allow_private_ip && check_private_ip(&address, 1)) {
+			dns_free(entry);
+			return (NULL);
+		}
+
+		/* we already have an address - no dns necessary */
+		dns_resolv_cb(DNS_ERR_NONE, DNS_IPv4_A,
+		    1, 3600, &address, entry);
+	}
+
+	return (entry);
+}
+
+void
+dns_free(struct dns_cache *entry)
+{
+	SPLAY_REMOVE(dns_tree, &root, entry);
+	free(entry->addresses);
+	free(entry->name);
+	free(entry);
+}
+
+void
+dns_init(struct event_base *base)
+{
+	SPLAY_INIT(&root);
+	dns_base = evdns_base_new(base, 1);
+	dns_ev_base = base;
+	if (dns_base == NULL) {
+		fprintf(stderr, "%s: evdns_base_new() failed!\n", __func__);
+		exit(1);
+	}
+}
