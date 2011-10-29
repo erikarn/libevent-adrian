@@ -95,6 +95,7 @@ main(int argc, char **argv)
 		return 1;
 	}
 
+	dns_init(base);
 	lusca_init(base);
 
 	/* We want to accept arbitrary requests, so we need to set a "generic"
