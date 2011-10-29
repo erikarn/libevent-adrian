@@ -23,25 +23,13 @@ struct proxy_request {
 	int first_chunk;
 };
 
-struct dns_cache {
-	SPLAY_ENTRY(dns_cache) node;
-
-	char *name;
-
-        TAILQ_HEAD(requestqueue, proxy_request) entries;
-
-	struct in_addr *addresses;					
-	int address_count;
-
-        struct event ev_timeout;
-};
-
-struct dns_cache *dns_new(const char *name);
-void dns_free(struct dns_cache *entry);
-
 struct proxy_request *proxy_request_new(
 	struct evhttp_request *req, u_short port, char *uri);
 void proxy_request_free(struct proxy_request *);
+
+/* These are called by dns.c routines */
+extern void dns_dispatch_error(struct dns_cache *);
+extern void dns_dispatch_requests(struct dns_cache *dns_entry);
 
 extern void request_handler(struct evhttp_request *request, void *arg);
 extern void lusca_init(struct event_base *base);

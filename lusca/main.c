@@ -61,6 +61,7 @@
 #define O_RDONLY _O_RDONLY
 #endif
 
+#include "dns.h"
 #include "lusca.h"
 
 char uri_root[512];
