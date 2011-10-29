@@ -44,7 +44,7 @@
 /* tell our callers that the name could not be resolved */
 static struct request_holder *request_holder_new(struct evhttp_request *req);
 static void request_holder_free(struct request_holder *rh);
-static void http_virusscan_done(const char *result, void *arg);
+static void http_send_reply(const char *result, void *arg);
 static void dns_dispatch_error(struct dns_cache *);
 static void dns_dispatch_requests(struct dns_cache *dns_entry);
 static void inform_domain_notfound(struct evhttp_request *request);
@@ -263,13 +263,13 @@ http_request_done(struct evhttp_request *req, void *arg)
 	if (req == NULL || req->response_code == 0) {
 		/* potential request timeout; unreachable machine, etc. */
 		pr->holder = NULL;
-		http_virusscan_done("error", pr);
+		http_send_reply("error", pr);
 		return;
 	}
 
 	pr->holder = request_holder_new(req);
 
-	http_virusscan_done("clean", pr);
+	http_send_reply("clean", pr);
 }
 
 static void
@@ -287,7 +287,7 @@ http_add_uncache_headers(struct evhttp_request *request)
 }
 
 static void
-http_virusscan_done(const char *result, void *arg)
+http_send_reply(const char *result, void *arg)
 {
 	struct proxy_request *pr = arg;
 	struct request_holder *rh = pr->holder;
