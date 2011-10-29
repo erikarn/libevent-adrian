@@ -237,7 +237,7 @@ http_request_complete(struct evhttp_request *req, void *arg)
 			pr->holder = request_holder_new(req);
 		/* potential request timeout; unreachable machine, etc. */
 		fprintf(stderr, "[FAIL] Other error: %s port %d, resp code=%d\n",
-		    pr->uri, pr->port, req->response_code);
+		    pr->uri, pr->port, req == NULL ? -1 : req->response_code);
 		http_send_reply("error", pr);
 		proxy_request_free(pr);
 		return;
@@ -271,7 +271,7 @@ http_request_first_chunk(struct evhttp_request *req, void *arg)
 	if (req == NULL || req->response_code == 0) {
 		/* potential request timeout; unreachable machine, etc. */
 		fprintf(stderr, "[FAIL] Fail in first chunk: %s port %d, resp code=%d\n",
-		    pr->uri, pr->port, req->response_code);
+		    pr->uri, pr->port, req == NULL ? -1 : req->response_code);
 		http_send_reply("error", pr);
 		proxy_request_free(pr);
 		return 0;
