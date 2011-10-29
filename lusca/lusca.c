@@ -45,6 +45,8 @@
 static struct request_holder *request_holder_new(struct evhttp_request *req);
 static void request_holder_free(struct request_holder *rh);
 static void http_send_reply(const char *result, void *arg);
+static void http_set_response_headers(struct proxy_request *pr);
+static int http_request_first_chunk(struct evhttp_request *req, void *arg);
 static void dns_dispatch_error(struct dns_cache *);
 static void dns_dispatch_requests(struct dns_cache *dns_entry);
 static void inform_domain_notfound(struct evhttp_request *request);
@@ -114,6 +116,25 @@ dns_resolv_cb(int result, char type, int count, int ttl,
 	timerclear(&tv);
 	tv.tv_sec = ttl;
 	evtimer_add(&entry->ev_timeout, &tv);
+}
+
+/*
+ * Called when an upstream connection has read a chunk.
+ */
+static void
+http_server_chunk_cb(struct evhttp_request *req, void *arg)
+{
+	struct evbuffer *eb;
+	struct proxy_request *pr = arg;
+
+	printf("%s: called\n", __func__);
+
+	if (pr->first_chunk == 0)
+		if (http_request_first_chunk(req, pr) == 0)
+			return;
+
+	eb = evhttp_request_get_input_buffer(req);
+	evhttp_send_reply_chunk(pr->req, eb);
 }
 
 static void
@@ -255,21 +276,66 @@ inform_no_referer(struct evhttp_request *request)
 	evbuffer_free(databuf);
 }
 
+/*
+ * This is called when the upstream connection has completed.
+ *
+ * Since we're using the streaming API, this will be called
+ * after the last chunked reply body callback is done.
+ *
+ * If the reply is empty, then req shouldn't be NULL and
+ * thus we'll just get an empty reply.
+ */
 static void
-http_request_done(struct evhttp_request *req, void *arg)
+http_request_complete(struct evhttp_request *req, void *arg)
 {
 	struct proxy_request *pr = arg;
+
+	printf("%s: called\n", __func__);
 
 	if (req == NULL || req->response_code == 0) {
 		/* potential request timeout; unreachable machine, etc. */
 		pr->holder = NULL;
 		http_send_reply("error", pr);
+		proxy_request_free(pr);
 		return;
 	}
 
-	pr->holder = request_holder_new(req);
+	/*
+	 * Send response headers if the response is empty!
+	 */
+	if (pr->first_chunk == 0)
+		http_request_first_chunk(req, pr);
 
-	http_send_reply("clean", pr);
+	evhttp_send_reply_end(pr->req);
+
+	/* We're now done, so free the connection side */
+	proxy_request_free(pr);
+}
+
+static int
+http_request_first_chunk(struct evhttp_request *req, void *arg)
+{
+	struct proxy_request *pr = arg;
+
+	printf("%s: called; first_chunked=%d\n", __func__, pr->first_chunk);
+	if (pr->first_chunk == 1)
+		return 1;		/* We can continue */
+
+	pr->first_chunk = 1;
+
+	if (req == NULL || req->response_code == 0) {
+		/* potential request timeout; unreachable machine, etc. */
+		pr->holder = NULL;
+		http_send_reply("error", pr);
+		proxy_request_free(pr);
+		return 0;
+	}
+	pr->holder = request_holder_new(req);
+	/* Setup the headers to send */
+	http_set_response_headers(pr);
+	evhttp_send_reply_start(pr->req, pr->holder->response_code,
+	    pr->holder->response_line);
+	return 1;
 }
 
 static void
@@ -286,14 +352,34 @@ http_add_uncache_headers(struct evhttp_request *request)
 	    "no-cache, no-store, must-revalidate, max-age=-1");
 }
 
+/*
+ * Send a whole reply. Caller must free the proxy_request struct.
+ */
 static void
 http_send_reply(const char *result, void *arg)
 {
 	struct proxy_request *pr = arg;
 	struct request_holder *rh = pr->holder;
+
+	printf("%s: called\n", __func__);
+
+	/* Setup response headers */
+	http_set_response_headers(pr);
+
+	/* Send the whole reply */
+	evhttp_send_reply(pr->req, rh->response_code, rh->response_line,
+	    rh->buffer);
+}
+
+static void
+http_set_response_headers(struct proxy_request *pr)
+{
+	struct request_holder *rh = pr->holder;
 	const char *location = NULL;
 	const char *content_type = NULL;
 	int ishtml = 0;
+
+	printf("%s: called\n", __func__);
 
 #if 0
 	log_request(LOG_INFO, pr->req, site);
@@ -303,7 +389,8 @@ http_send_reply(const char *result, void *arg)
 		/* we have nothing to serve */
 		inform_error(pr->req, HTTP_SERVUNAVAIL,
 		    "Could not reach remote location.");
-		goto done;
+		proxy_request_free(pr);
+		return;
 	}
 
 	location = evhttp_find_header(rh->headers, "Location");
@@ -339,12 +426,6 @@ http_send_reply(const char *result, void *arg)
 		    "Content-Length");
 	}
 #endif
-
-	evhttp_send_reply(pr->req, rh->response_code, rh->response_line,
-	    rh->buffer);
-
-done:
-	proxy_request_free(pr);
 }
 
 
@@ -354,6 +435,8 @@ dispatch_single_request(struct dns_cache *dns, struct proxy_request *pr)
 	struct evhttp_request *request;
 	char *address = inet_ntoa(dns->addresses[0]);
 	const char *host = NULL;
+
+	printf("%s: called\n", __func__);
 
 	assert(pr->evcon == NULL);
 	pr->evcon = evhttp_connection_base_new(ev_base, dns_base,
@@ -365,7 +448,7 @@ dispatch_single_request(struct dns_cache *dns, struct proxy_request *pr)
 	evhttp_connection_set_timeout(pr->evcon, SPYBYE_CONNECTION_TIMEOUT);
 
 	/* we got the connection now - queue the request */
-	request = evhttp_request_new(http_request_done, pr);
+	request = evhttp_request_new(http_request_complete, pr);
 	if (request == NULL)
 		goto fail;
 
@@ -387,6 +470,8 @@ dispatch_single_request(struct dns_cache *dns, struct proxy_request *pr)
 		    pr->req->output_buffer);
 
 	evhttp_add_header(request->output_headers, "Connection", "close");
+	/* We want the reply data chunked */
+	evhttp_request_set_chunked_cb(request, http_server_chunk_cb);
 	evhttp_make_request(pr->evcon, request, pr->req->type, pr->uri);
 	return;
 

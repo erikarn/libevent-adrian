@@ -20,6 +20,7 @@ struct proxy_request {
 
 	u_short port;			   
         char *uri;
+	int first_chunk;
 };
 
 struct dns_cache {
