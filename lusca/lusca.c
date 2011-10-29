@@ -233,8 +233,11 @@ http_request_complete(struct evhttp_request *req, void *arg)
 	DNFPRINTF(10, (stderr, "%s: pr=%p\n", __func__, pr));
 
 	if (req == NULL || req->response_code == 0) {
+		if (pr->holder == NULL)
+			pr->holder = request_holder_new(req);
 		/* potential request timeout; unreachable machine, etc. */
-		pr->holder = NULL;
+		fprintf(stderr, "[FAIL] Other error: %s port %d, resp code=%d\n",
+		    pr->uri, pr->port, req->response_code);
 		http_send_reply("error", pr);
 		proxy_request_free(pr);
 		return;
@@ -264,14 +267,15 @@ http_request_first_chunk(struct evhttp_request *req, void *arg)
 
 	pr->first_chunk = 1;
 
+	pr->holder = request_holder_new(req);
 	if (req == NULL || req->response_code == 0) {
 		/* potential request timeout; unreachable machine, etc. */
-		pr->holder = NULL;
+		fprintf(stderr, "[FAIL] Fail in first chunk: %s port %d, resp code=%d\n",
+		    pr->uri, pr->port, req->response_code);
 		http_send_reply("error", pr);
 		proxy_request_free(pr);
 		return 0;
 	}
-	pr->holder = request_holder_new(req);
 	/* Setup the headers to send */
 	http_set_response_headers(pr);
 	evhttp_send_reply_start(pr->req, pr->holder->response_code,
@@ -325,14 +329,6 @@ http_set_response_headers(struct proxy_request *pr)
 #if 0
 	log_request(LOG_INFO, pr->req, site);
 #endif
-
-	if (rh == NULL) {
-		/* we have nothing to serve */
-		inform_error(pr->req, HTTP_SERVUNAVAIL,
-		    "Could not reach remote location.");
-		proxy_request_free(pr);
-		return;
-	}
 
 	location = evhttp_find_header(rh->headers, "Location");
 	/* keep track of the redirect so that we can tie it together */
@@ -568,16 +564,17 @@ request_holder_new(struct evhttp_request *req)
 	assert(rh->headers != NULL);
 	TAILQ_INIT(rh->headers);
 
-	http_copy_headers(rh->headers, req->input_headers);
+	if (req == NULL) {
+		rh->response_code = 500;
+		rh->response_line = strdup("Unknown Server Error");
+	} else {
+		http_copy_headers(rh->headers, req->input_headers);
+		rh->response_code = req->response_code;
+		rh->response_line = strdup(req->response_code_line);
+	}
 
 	/* copy all the data that we need to make the reply */
 	rh->buffer = evbuffer_new();
-	assert(rh->buffer != NULL);
-	evbuffer_add(rh->buffer,
-	    EVBUFFER_DATA(req->input_buffer),
-	    EVBUFFER_LENGTH(req->input_buffer));
-	rh->response_code = req->response_code;
-	rh->response_line = strdup(req->response_code_line);
 	assert(rh->response_line != NULL);
 
 	return (rh);
