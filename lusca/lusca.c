@@ -100,29 +100,6 @@ http_copy_headers(struct evkeyvalq *dst, struct evkeyvalq *src)
 }
 
 static void
-map_location_header(struct evhttp_request *req, const char *location)
-{
-	static char path[1024];
-	char *host, *uri;
-	u_short port;
-			
-	if (http_hostportfile(location, NULL, NULL, NULL) == -1) {
-		if (http_hostportfile(req->uri, &host, &port, &uri) == -1)
-			return;
-		if (location[0] == '/') {
-			snprintf(path, sizeof(path), "http://%s%s",
-			    host, location);
-		} else {
-			snprintf(path, sizeof(path), "http://%s%s%s",
-			    host, uri, location);
-		}
-	} else {
-		strlcpy(path, location, sizeof(path));
-	}
-	fprintf(stderr, "[MAP] %s -> %s\n", path, req->uri);
-}
-
-static void
 inform_domain_notfound(struct evhttp_request *request)
 {
 	struct evbuffer *databuf = evbuffer_new();
@@ -320,7 +297,6 @@ static void
 http_set_response_headers(struct proxy_request *pr)
 {
 	struct request_holder *rh = pr->holder;
-	const char *location = NULL;
 	const char *content_type = NULL;
 	int ishtml = 0;
 
@@ -329,11 +305,6 @@ http_set_response_headers(struct proxy_request *pr)
 #if 0
 	log_request(LOG_INFO, pr->req, site);
 #endif
-
-	location = evhttp_find_header(rh->headers, "Location");
-	/* keep track of the redirect so that we can tie it together */
-	if (location != NULL)
-		map_location_header(pr->req, location);
 
 	http_copy_headers(pr->req->output_headers, rh->headers);
 
