@@ -419,8 +419,8 @@ request_handler(struct evhttp_request *request, void *arg)
 
 	/* now insert the request into our status object */
 	referer = evhttp_find_header(request->input_headers, "Referer");
-	DEBUG(1, 1) ("[URL] Request for %s (%s) from %s\n",
-	    request->uri, referer, request->remote_host);
+	DEBUG(1, 1) ("[URL] Request for %s from %s\n",
+	    request->uri, request->remote_host);
 
 	if ((entry = dns_new(host)) == NULL) {
 		DEBUG(1, 1) ("[PRIVATE] Attempt to visit private IP: %s\n",
