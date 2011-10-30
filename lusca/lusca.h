@@ -12,20 +12,17 @@ struct request_holder {
 
 struct proxy_request {
 	TAILQ_ENTRY(proxy_request) (next);
-
 	struct evhttp_request *req;
-        struct evhttp_connection *evcon;			  
-
+struct evhttp_connection *evcon;
 	struct request_holder *holder;
-
-	u_short port;			   
-        char *uri;
+	u_short port;
+	char *uri;
 	int first_chunk;
 };
 
-struct proxy_request *proxy_request_new(
-	struct evhttp_request *req, u_short port, char *uri);
-void proxy_request_free(struct proxy_request *);
+extern	struct proxy_request *proxy_request_new(struct evhttp_request *req,
+	    u_short port, char *uri);
+extern	void proxy_request_free(struct proxy_request *);
 
 /* These are called by dns.c routines */
 extern void dns_dispatch_error(struct dns_cache *);
