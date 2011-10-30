@@ -51,17 +51,20 @@ static void http_send_reply(const char *result, void *arg);
 static void http_set_response_headers(struct proxy_request *pr);
 static int http_request_first_chunk(struct evhttp_request *req, void *arg);
 static void inform_domain_notfound(struct evhttp_request *request);
-static void inform_no_referer(struct evhttp_request *request);
 
 int debug = 0;
-
-int behave_as_proxy = 1;
 
 /* XXX ew, global */
 struct event_base *ev_base = NULL;
 struct logfile access_log;
 struct logfile cache_log;
 struct logfile debug_log;
+
+/*
+ * This is used to provide a seqential transaction id to
+ * each proxy request.
+ */
+uint64_t lusca_transaction_id = 0;
 
 /*
  * Called when an upstream connection has read a chunk.
@@ -175,29 +178,6 @@ inform_error(struct evhttp_request *request,
 	evbuffer_free(databuf);
 }
 
-static void
-inform_no_referer(struct evhttp_request *request)
-{
-	struct evbuffer *databuf = evbuffer_new();
-	char *escaped = evhttp_encode_uri(request->uri);
-	char *html_escaped = evhttp_htmlescape(request->uri);
-	assert(databuf != NULL);
-
-	evbuffer_add_printf(databuf,
-	    "<html><head><title>Request Denied</title></head>"
-	    "<body><div style=\"border: solid 1px; padding: 2px; "
-	    "width: 40%%; "
-	    "background-color: #dcdcee; font-family: Verdana, Arial;\">"
-	    "<h2>Request Denied</h2>\n"
-	    "</body></html>");
-	free(escaped);
-	free(html_escaped);
-
-	/* we cannot allow this request */
-	evhttp_send_reply(request, HTTP_NOTFOUND, "Not Found", databuf);
-	evbuffer_free(databuf);
-}
-
 /*
  * This is called when the upstream connection has completed.
  *
@@ -265,6 +245,7 @@ http_request_first_chunk(struct evhttp_request *req, void *arg)
 	return 1;
 }
 
+#if 0
 static void
 http_add_uncache_headers(struct evhttp_request *request)
 {
@@ -278,6 +259,7 @@ http_add_uncache_headers(struct evhttp_request *request)
 	    "Cache-Control",
 	    "no-cache, no-store, must-revalidate, max-age=-1");
 }
+#endif
 
 /*
  * Send a whole reply. Caller must free the proxy_request struct.
@@ -307,10 +289,6 @@ http_set_response_headers(struct proxy_request *pr)
 
 	DNFPRINTF(10, (stderr, "%s: pr=%p\n", __func__, pr));
 
-#if 0
-	log_request(LOG_INFO, pr->req, site);
-#endif
-
 	http_copy_headers(pr->req->output_headers, rh->headers);
 
 	/*
@@ -322,23 +300,6 @@ http_set_response_headers(struct proxy_request *pr)
 	content_type = evhttp_find_header(rh->headers, "Content-Type");
 	ishtml = content_type != NULL &&
 	    strncasecmp(content_type, "text/html", 9) == 0;
-	if (!behave_as_proxy || ishtml) {
-		/*
-		 * make everything we do uncacheable, so that we
-		 * always get all requests 
-		 */
-		http_add_uncache_headers(pr->req);
-	}
-
-#if 0
-	/* inject our control code here */
-	if (!use_iframes && ishtml) {
-		inject_control_javascript(rh->buffer);
-		/* fix up the content length */
-		evhttp_remove_header(pr->req->output_headers,
-		    "Content-Length");
-	}
-#endif
 }
 
 static void
@@ -460,22 +421,10 @@ request_handler(struct evhttp_request *request, void *arg)
 	referer = evhttp_find_header(request->input_headers, "Referer");
 	fprintf(stderr, "[URL] Request for %s (%s) from %s\n",
 	    request->uri, referer, request->remote_host);
-	if (referer == NULL && !behave_as_proxy) {
-//		log_request(LOG_INFO, request, NULL);
-		inform_no_referer(request);
-		return;
-	}
-
-#if 0
-	/* make sure that we do not send a referer if this is a root URL */
-	if (site->parent == NULL)
-		evhttp_remove_header(request->input_headers, "Referer");
-#endif
 
 	if ((entry = dns_new(host)) == NULL) {
 		fprintf(stderr, "[PRIVATE] Attempt to visit private IP: %s\n",
 		    request->uri);
-//		log_request(LOG_INFO, request, site);
 		inform_error(request,
 		    HTTP_BADREQUEST, "Access to private IP disallowed.");
 		return;
@@ -498,6 +447,7 @@ proxy_request_new(struct evhttp_request *req, u_short port, char *uri)
 
 	pr->req = req;
 	pr->port = port;
+	pr->xid = lusca_transaction_id++;
 
 	return (pr);
 }

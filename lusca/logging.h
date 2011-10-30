@@ -19,5 +19,6 @@ extern	void logfile_open(struct logfile *lf, const char *path);
 extern	void logfile_close(struct logfile *lf);
 extern	void logfile_flush(struct logfile *lf);
 extern	void logfile_printf(struct logfile *lf, const char *fmt, ...);
+extern	void logfile_vprintf(struct logfile *lf, const char *fmt, va_list args);
 
 #endif	/* __LUSCA_LOGGING_H__ */

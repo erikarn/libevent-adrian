@@ -18,6 +18,7 @@ struct proxy_request {
 	u_short port;
 	char *uri;
 	int first_chunk;
+	uint64_t xid;
 };
 
 extern	struct proxy_request *proxy_request_new(struct evhttp_request *req,
