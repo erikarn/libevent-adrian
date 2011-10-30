@@ -31,5 +31,6 @@ extern void dns_dispatch_requests(struct dns_cache *dns_entry);
 
 extern void request_handler(struct evhttp_request *request, void *arg);
 extern void lusca_init(struct event_base *base);
+extern	void lusca_shutdown(void);
 
 #endif	/* __LUSCA_LUSCA_H__ */

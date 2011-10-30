@@ -150,5 +150,7 @@ main(int argc, char **argv)
 
 	event_base_dispatch(base);
 
+	lusca_shutdown();
+
 	return 0;
 }

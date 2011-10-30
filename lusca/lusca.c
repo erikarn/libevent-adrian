@@ -529,3 +529,11 @@ lusca_init(struct event_base *base)
 	logfile_init(&debug_log);
 	logfile_open(&debug_log, "debug.log");
 }
+
+void
+lusca_shutdown(void)
+{
+	logfile_close(&access_log);
+	logfile_close(&cache_log);
+	logfile_close(&debug_log);
+}
