@@ -59,6 +59,9 @@ int behave_as_proxy = 1;
 
 /* XXX ew, global */
 struct event_base *ev_base = NULL;
+struct logfile access_log;
+struct logfile cache_log;
+struct logfile debug_log;
 
 /*
  * Called when an upstream connection has read a chunk.
@@ -568,4 +571,11 @@ lusca_init(struct event_base *base)
 {
 	evtag_init();
 	ev_base = base;
+
+	logfile_init(&access_log);
+	logfile_open(&access_log, "access.log");
+	logfile_init(&cache_log);
+	logfile_open(&cache_log, "cache.log");
+	logfile_init(&debug_log);
+	logfile_open(&debug_log, "debug.log");
 }

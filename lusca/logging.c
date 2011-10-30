@@ -40,7 +40,17 @@ logfile_destroy(struct logfile *lf)
 void
 logfile_open(struct logfile *lf, const char *path)
 {
-
+	pthread_mutex_lock(&lf->log_lock);
+	if (lf->p.fp != NULL)
+		logfile_close(lf);
+	if (lf->p.path != NULL) {
+		free(lf->p.path);
+		lf->p.path = NULL;
+	}
+	lf->p.path = strdup(path);
+	lf->p.fp = fopen(lf->p.path, "w+");
+	/* XXX error handling? */
+	pthread_mutex_unlock(&lf->log_lock);
 }
 
 void
@@ -72,20 +82,22 @@ logfile_printf(struct logfile *lf, const char *fmt, ...)
 {
 	va_list args;
 	struct timeval tv;
+	char buf[64];
 
 	va_start(args, fmt);
-
 	(void) gettimeofday(&tv, NULL);
+
 	pthread_mutex_lock(&lf->log_lock);
+	if (lf->p.fp != NULL) {
+		/* Prepend time if required */
+		snprintf(buf, 64, "%ld.%.3ld |",
+		    (long int) tv.tv_sec,
+		    (long int) tv.tv_usec);
+		fprintf(lf->p.fp, "%s", lf->p.buf);
 
-	/* Prepend time if required */
-	snprintf(lf->p.buf, LOGGING_BUFLEN, "%ld.%.3ld |",
-	    (long int) tv.tv_sec,
-	    (long int) tv.tv_usec);
-	fprintf(lf->p.fp, "%s", lf->p.buf);
-
-	/* Add the logging line */
-	vfprintf(lf->p.fp, fmt, args);
+		/* Add the logging line */
+		vfprintf(lf->p.fp, fmt, args);
+	}
 	pthread_mutex_unlock(&lf->log_lock);
 	va_end(args);
 }
