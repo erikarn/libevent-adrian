@@ -13,7 +13,7 @@ struct request_holder {
 struct proxy_request {
 	TAILQ_ENTRY(proxy_request) (next);
 	struct evhttp_request *req;
-struct evhttp_connection *evcon;
+	struct evhttp_connection *evcon;
 	struct request_holder *holder;
 	u_short port;
 	char *uri;
