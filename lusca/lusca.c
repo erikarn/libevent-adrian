@@ -40,6 +40,8 @@
 #include "log.h"
 #include "utils.h"
 #include "dns.h"
+#include "logging.h"
+
 #include "lusca.h"
 
 /* tell our callers that the name could not be resolved */
