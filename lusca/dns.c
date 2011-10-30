@@ -77,8 +77,8 @@ dns_resolv_cb(int result, char type, int count, int ttl,
 	struct dns_cache *entry = arg;
 	struct timeval tv;
 
-	DNFPRINTF(1, (stderr, "[DNS] Received response for %s: %d\n",
-		entry->name, result));
+	DEBUG(1, 1) ("[DNS] Received response for %s: %d\n",
+		entry->name, result);
 
 	if (result != DNS_ERR_NONE) {
 		/* we were not able to resolve the name */
@@ -127,8 +127,8 @@ dns_new(const char *name)
 	SPLAY_INSERT(dns_tree, &root, entry);
 
 	if (inet_aton(entry->name, &address) != 1) {
-		DNFPRINTF(1, (stderr, "[DNS] Resolving IPv4 for %s\n",
-			entry->name));
+		DEBUG(1, 1) ("[DNS] Resolving IPv4 for %s\n",
+			entry->name);
 		evdns_base_resolve_ipv4(dns_base, entry->name, 0,
 		    dns_resolv_cb, entry);
 	} else {

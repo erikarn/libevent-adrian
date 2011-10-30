@@ -52,7 +52,7 @@ static void http_set_response_headers(struct proxy_request *pr);
 static int http_request_first_chunk(struct evhttp_request *req, void *arg);
 static void inform_domain_notfound(struct evhttp_request *request);
 
-int debug = 0;
+int debug = 100;
 
 /* XXX ew, global */
 struct event_base *ev_base = NULL;
@@ -75,7 +75,7 @@ http_server_chunk_cb(struct evhttp_request *req, void *arg)
 	struct evbuffer *eb;
 	struct proxy_request *pr = arg;
 
-	DNFPRINTF(10, (stderr, "%s: req=%p, pr=%p\n", __func__, req, pr));
+	DEBUG(1, 1) ("%s: req=%p, pr=%p\n", __func__, req, pr);
 
 	if (pr->first_chunk == 0)
 		if (http_request_first_chunk(req, pr) == 0)
@@ -96,13 +96,13 @@ http_copy_headers(struct evkeyvalq *dst, struct evkeyvalq *src)
 		    strcasecmp(kv->key, "Connection") == 0 ||
 		    strcasecmp(kv->key, "Keep-Alive") == 0 ||
 		    strcasecmp(kv->key, "Proxy-Connection") == 0) {
-			DNFPRINTF(2, (stderr, "[HEADER] Ignoring %s: %s\n",
-				kv->key, kv->value));
+			DEBUG(1, 2) ("[HEADER] Ignoring %s: %s\n",
+				kv->key, kv->value);
 			continue;
 		}
 		/* we might want to do some filtering here */
-		DNFPRINTF(2, (stderr, "[DEBUG] Header %s: %s\n",
-			kv->key, kv->value));
+		DEBUG(1, 2) ("[DEBUG] Header %s: %s\n",
+			kv->key, kv->value);
 		evhttp_add_header(dst, kv->key, kv->value);
 	}
 }
@@ -192,7 +192,7 @@ http_request_complete(struct evhttp_request *req, void *arg)
 {
 	struct proxy_request *pr = arg;
 
-	DNFPRINTF(10, (stderr, "%s: pr=%p\n", __func__, pr));
+	DEBUG(1, 10) ("%s: pr=%p\n", __func__, pr);
 
 	if (req == NULL || req->response_code == 0) {
 		if (pr->holder == NULL)
@@ -222,8 +222,8 @@ http_request_first_chunk(struct evhttp_request *req, void *arg)
 {
 	struct proxy_request *pr = arg;
 
-	DNFPRINTF(10, (stderr, "%s: pr=%p, first_chunked=%d\n", __func__, pr,
-	    pr->first_chunk));
+	DEBUG(1, 10) ("%s: pr=%p, first_chunked=%d\n", __func__, pr,
+	    pr->first_chunk);
 	if (pr->first_chunk == 1)
 		return 1;		/* We can continue */
 
@@ -270,7 +270,7 @@ http_send_reply(const char *result, void *arg)
 	struct proxy_request *pr = arg;
 	struct request_holder *rh = pr->holder;
 
-	DNFPRINTF(10, (stderr, "%s: pr=%p\n", __func__, pr));
+	DEBUG(1, 10) ("%s: pr=%p\n", __func__, pr);
 
 	/* Setup response headers */
 	http_set_response_headers(pr);
@@ -287,7 +287,7 @@ http_set_response_headers(struct proxy_request *pr)
 	const char *content_type = NULL;
 	int ishtml = 0;
 
-	DNFPRINTF(10, (stderr, "%s: pr=%p\n", __func__, pr));
+	DEBUG(1, 10) ("%s: pr=%p\n", __func__, pr);
 
 	http_copy_headers(pr->req->output_headers, rh->headers);
 
@@ -309,7 +309,7 @@ dispatch_single_request(struct dns_cache *dns, struct proxy_request *pr)
 	char *address = inet_ntoa(dns->addresses[0]);
 	const char *host = NULL;
 
-	DNFPRINTF(10, (stderr, "%s: pr=%p\n", __func__, pr));
+	DEBUG(1, 10) ("%s: pr=%p\n", __func__, pr);
 
 	assert(pr->evcon == NULL);
 	/* XXX dns_base! */
@@ -463,7 +463,7 @@ void
 proxy_request_free(struct proxy_request *pr)
 {
 
-	DNFPRINTF(10, (stderr, "%s: pr=%p\n", __func__, pr));
+	DEBUG(1, 10) ("%s: pr=%p\n", __func__, pr);
 
 	if (pr->evcon != NULL) {
 		struct timeval tv;
