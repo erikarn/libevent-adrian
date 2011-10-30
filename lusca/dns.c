@@ -64,7 +64,7 @@ dns_ttl_expired(int result, short what, void *arg)
 {
 	struct dns_cache *dns = arg;
 	
-	fprintf(stderr, "[DNS] Expire entry for %s\n", dns->name);
+	DEBUG(1, 1) ("[DNS] Expire entry for %s\n", dns->name);
 
 	assert(TAILQ_FIRST(&dns->entries) == NULL);
 	dns_free(dns);

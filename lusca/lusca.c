@@ -52,7 +52,7 @@ static void http_set_response_headers(struct proxy_request *pr);
 static int http_request_first_chunk(struct evhttp_request *req, void *arg);
 static void inform_domain_notfound(struct evhttp_request *request);
 
-int debug = 100;
+int debug = 1;
 
 /* XXX ew, global */
 struct event_base *ev_base = NULL;
@@ -75,7 +75,7 @@ http_server_chunk_cb(struct evhttp_request *req, void *arg)
 	struct evbuffer *eb;
 	struct proxy_request *pr = arg;
 
-	DEBUG(1, 1) ("%s: req=%p, pr=%p\n", __func__, req, pr);
+	DEBUG(1, 10) ("%s: req=%p, pr=%p\n", __func__, req, pr);
 
 	if (pr->first_chunk == 0)
 		if (http_request_first_chunk(req, pr) == 0)
@@ -198,7 +198,7 @@ http_request_complete(struct evhttp_request *req, void *arg)
 		if (pr->holder == NULL)
 			pr->holder = request_holder_new(req);
 		/* potential request timeout; unreachable machine, etc. */
-		fprintf(stderr, "[FAIL] Other error: %s port %d, resp code=%d\n",
+		DEBUG(1, 1) ("[FAIL] Other error: %s port %d, resp code=%d\n",
 		    pr->uri, pr->port, req == NULL ? -1 : req->response_code);
 		http_send_reply("error", pr);
 		proxy_request_free(pr);
@@ -232,7 +232,7 @@ http_request_first_chunk(struct evhttp_request *req, void *arg)
 	pr->holder = request_holder_new(req);
 	if (req == NULL || req->response_code == 0) {
 		/* potential request timeout; unreachable machine, etc. */
-		fprintf(stderr, "[FAIL] Fail in first chunk: %s port %d, resp code=%d\n",
+		DEBUG(1, 1) ("[FAIL] Fail in first chunk: %s port %d, resp code=%d\n",
 		    pr->uri, pr->port, req == NULL ? -1 : req->response_code);
 		http_send_reply("error", pr);
 		proxy_request_free(pr);
@@ -315,7 +315,7 @@ dispatch_single_request(struct dns_cache *dns, struct proxy_request *pr)
 	/* XXX dns_base! */
 	pr->evcon = evhttp_connection_base_new(ev_base, dns_base,
 	    address, pr->port);
-	fprintf(stderr, "[NET] Connecting %s:%d\n", address, pr->port);
+	DEBUG(1, 1) ("[NET] Connecting %s:%d\n", address, pr->port);
 	if (pr->evcon == NULL)
 		goto fail;
 
@@ -419,11 +419,11 @@ request_handler(struct evhttp_request *request, void *arg)
 
 	/* now insert the request into our status object */
 	referer = evhttp_find_header(request->input_headers, "Referer");
-	fprintf(stderr, "[URL] Request for %s (%s) from %s\n",
+	DEBUG(1, 1) ("[URL] Request for %s (%s) from %s\n",
 	    request->uri, referer, request->remote_host);
 
 	if ((entry = dns_new(host)) == NULL) {
-		fprintf(stderr, "[PRIVATE] Attempt to visit private IP: %s\n",
+		DEBUG(1, 1) ("[PRIVATE] Attempt to visit private IP: %s\n",
 		    request->uri);
 		inform_error(request,
 		    HTTP_BADREQUEST, "Access to private IP disallowed.");
