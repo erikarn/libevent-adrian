@@ -94,6 +94,7 @@ logfile_printf(struct logfile *lf, const char *fmt, ...)
 		    (long int) tv.tv_sec,
 		    (long int) tv.tv_usec);
 		fprintf(lf->p.fp, "%s", lf->p.buf);
+		fflush(lf->p.fp);
 
 		/* Add the logging line */
 		vfprintf(lf->p.fp, fmt, args);
@@ -117,6 +118,7 @@ logfile_vprintf(struct logfile *lf, const char *fmt, va_list args)
 		    (long int) tv.tv_sec,
 		    (long int) tv.tv_usec);
 		fprintf(lf->p.fp, "%s", lf->p.buf);
+		fflush(lf->p.fp);
 
 		/* Add the logging line */
 		vfprintf(lf->p.fp, fmt, args);
