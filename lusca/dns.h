@@ -14,8 +14,9 @@ struct dns_cache {
 	char *name;
 	TAILQ_HEAD(requestqueue, dns_request) entries;
 	struct in_addr *addresses;
-	int address_count;
+	int address_count;	/* set once the request is finished */
 	struct event ev_timeout;
+	int status;		/* set once the request is finished */
 };
 
 extern struct dns_cache * dns_new(const char *name);

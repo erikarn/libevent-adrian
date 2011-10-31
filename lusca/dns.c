@@ -108,9 +108,16 @@ dns_resolv_cb(int result, char type, int count, int ttl,
 	access_log_write(NULL, "DNS", "Response", "%s: result code = %d\n",
 	    entry->name, result);
 
+	entry->status = result;
+
 	if (result != DNS_ERR_NONE) {
 		/* we were not able to resolve the name */
-		dns_dispatch_error(entry);
+		dns_dispatch_requests(entry);
+
+		/* no negative caching */
+		dns_lock();
+		dns_free(entry);
+		dns_unlock();
 		return;
 	}
 
