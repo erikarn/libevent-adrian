@@ -13,6 +13,8 @@ struct dns_cache {
 extern struct dns_cache * dns_new(const char *name);
 extern void dns_free(struct dns_cache *entry);
 extern void dns_init(struct event_base *base);
+extern void dns_lock(void);
+extern void dns_unlock(void);
 
 extern struct evdns_base *dns_base;
 

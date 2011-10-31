@@ -409,7 +409,9 @@ dns_dispatch_error(struct dns_cache *dns_entry)
 	}
 
 	/* no negative caching */
+	dns_lock();
 	dns_free(dns_entry);
+	dns_unlock();
 }
 
 static void
