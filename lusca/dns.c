@@ -128,7 +128,7 @@ dns_new(const char *name)
 	tmp.name = (char *)name;
 	dns_lock();
 	if ((entry = SPLAY_FIND(dns_tree, &root, &tmp)) != NULL) {
-		dns_lock();
+		dns_unlock();
 		return (entry);
 	}
 	dns_unlock();
