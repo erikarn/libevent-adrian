@@ -1,3 +1,12 @@
+/*
+ * This implements a basic logging API for use by various
+ * modules.
+ *
+ * The design is to be thread-safe and be backend-agnostic -
+ * ie, the caller doesn't have to care about the kind of logging
+ * going on, just that it's a line based log. It could be to a file,
+ * or syslog, or a ring buffer, etc.
+ */
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
