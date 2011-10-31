@@ -44,9 +44,6 @@
 #include "lusca.h"	/* needed for the callback function */
 #include "access_log.h"
 
-/* globals */
-static int allow_private_ip = 1;
-
 struct evdns_base *dns_base = NULL;
 struct event_base *dns_ev_base = NULL;
 
@@ -134,12 +131,6 @@ dns_new(const char *name)
 		evdns_base_resolve_ipv4(dns_base, entry->name, 0,
 		    dns_resolv_cb, entry);
 	} else {
-		/* this request is dangerous */
-		if (!allow_private_ip && check_private_ip(&address, 1)) {
-			dns_free(entry);
-			return (NULL);
-		}
-
 		/* we already have an address - no dns necessary */
 		dns_resolv_cb(DNS_ERR_NONE, DNS_IPv4_A,
 		    1, 3600, &address, entry);
