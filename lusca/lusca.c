@@ -389,23 +389,30 @@ fail:
 void
 dns_dispatch_requests(struct dns_cache *dns)
 {
-	struct proxy_request *entry;
-	while ((entry = TAILQ_FIRST(&dns->entries)) != NULL) {
-		TAILQ_REMOVE(&dns->entries, entry, next);
-		
-		dispatch_single_request(dns, entry);
+	struct proxy_request *req;
+	struct dns_request *r;
+
+	while ((r = TAILQ_FIRST(&dns->entries)) != NULL) {
+		TAILQ_REMOVE(&dns->entries, r, next);
+		req = r->arg;
+		dispatch_single_request(dns, req);
+		free(r);
 	}
 }
 
 void
 dns_dispatch_error(struct dns_cache *dns_entry)
 {
-	struct proxy_request *entry;
-	while ((entry = TAILQ_FIRST(&dns_entry->entries)) != NULL) {
-		TAILQ_REMOVE(&dns_entry->entries, entry, next);
+	struct proxy_request *req;
+	struct dns_request *r;
 
-		inform_domain_notfound(entry->req);
-		proxy_request_free(entry);
+	while ((r = TAILQ_FIRST(&dns_entry->entries)) != NULL) {
+		TAILQ_REMOVE(&dns_entry->entries, r, next);
+		req = r->arg;
+
+		inform_domain_notfound(req->req);
+		proxy_request_free(req);
+		free(r);
 	}
 
 	/* no negative caching */
@@ -417,7 +424,16 @@ dns_dispatch_error(struct dns_cache *dns_entry)
 static void
 request_add_dns(struct dns_cache *entry, struct proxy_request *pr)
 {
-	TAILQ_INSERT_TAIL(&entry->entries, pr, next);
+	struct dns_request *r;
+
+	r = calloc(1, sizeof(*r));
+	if (r == NULL)
+		err(1, "calloc");
+
+	r->cb = NULL;	/* XXX for now */
+	r->arg = pr;
+
+	TAILQ_INSERT_TAIL(&entry->entries, r, next);
 
 	/* still waiting for resolution */
 	if (entry->address_count == 0)
