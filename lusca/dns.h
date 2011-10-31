@@ -17,6 +17,9 @@ extern void dns_init(struct event_base *base);
 extern void dns_lock(void);
 extern void dns_unlock(void);
 
+extern void dns_entry_lock(struct dns_cache *entry);
+extern void dns_entry_unlock(struct dns_cache *entry);
+
 extern struct evdns_base *dns_base;
 
 #endif	/* __LUSCA_DNS_H__ */

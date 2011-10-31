@@ -72,6 +72,19 @@ dns_unlock(void)
 	pthread_mutex_unlock(&dns_mutex);
 }
 
+void
+dns_entry_lock(struct dns_cache *entry)
+{
+
+	pthread_mutex_lock(&entry->entry_lock);
+}
+
+void
+dns_entry_unlock(struct dns_cache *entry)
+{
+	pthread_mutex_unlock(&entry->entry_lock);
+}
+
 static void
 dns_ttl_expired(int result, short what, void *arg)
 {
