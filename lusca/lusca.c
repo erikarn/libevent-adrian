@@ -522,7 +522,6 @@ request_holder_free(struct request_holder *rh)
 void
 lusca_init(struct event_base *base)
 {
-	evtag_init();
 	ev_base = base;
 
 	logfile_init(&access_log);

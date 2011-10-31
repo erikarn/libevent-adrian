@@ -95,6 +95,7 @@ main(int argc, char **argv)
 
 	evthread_use_pthreads();
 	evthread_enable_lock_debuging();
+	evtag_init();
 
 	base = event_base_new();
 	if (!base) {
