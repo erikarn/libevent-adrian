@@ -101,7 +101,7 @@ static void
 dns_ttl_expired(int result, short what, void *arg)
 {
 	struct dns_cache *dns = arg;
-	
+
 	access_log_write(NULL, "DNS", "Expire", "Expire entry %s\n", dns->name);
 
 	dns_lock();
@@ -209,29 +209,29 @@ dns_new(const char *name)
 void
 dns_add_request(struct dns_cache *entry, dns_cb_t *cb, void *arg)
 {
-        struct dns_request *r;
+	struct dns_request *r;
 
-        r = calloc(1, sizeof(*r));
-        if (r == NULL)
-                err(1, "calloc");
+	r = calloc(1, sizeof(*r));
+	if (r == NULL)
+		err(1, "calloc");
 
-        r->entry = entry;
+	r->entry = entry;
 
-        r->arg = arg;
-        r->cb = cb;
+	r->arg = arg;
+	r->cb = cb;
 
-        TAILQ_INSERT_TAIL(&entry->entries, r, next);
+	TAILQ_INSERT_TAIL(&entry->entries, r, next);
 
-        /* still waiting for resolution */
-        if (entry->address_count == 0)
-                return;
+	/* still waiting for resolution */
+	if (entry->address_count == 0)
+		return;
 
-        /*
-         * XXX this shouldn't be here; but until we're
-         * using the evthr stuff for DNS, this will have
-         * to do.
-         */
-        dns_dispatch_requests(entry);
+	/*
+	 * XXX this shouldn't be here; but until we're
+	 * using the evthr stuff for DNS, this will have
+	 * to do.
+	 */
+	dns_dispatch_requests(entry);
 }
 
 
