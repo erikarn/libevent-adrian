@@ -21,6 +21,7 @@ struct dns_cache {
 	int address_count;	/* set once the request is finished */
 	struct event ev_timeout;
 	int status;		/* set once the request is finished */
+	int ref;
 };
 
 extern struct dns_cache * dns_new(const char *name);
@@ -31,6 +32,8 @@ extern void dns_unlock(void);
 
 extern void dns_entry_lock(struct dns_cache *entry);
 extern void dns_entry_unlock(struct dns_cache *entry);
+extern void dns_entry_ref(struct dns_cache *entry);
+extern void dns_entry_deref(struct dns_cache *entry);
 extern void dns_add_request(struct dns_cache *entry,
     dns_cb_t *cb, void *pr);
 
