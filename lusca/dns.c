@@ -110,9 +110,7 @@ dns_ttl_expired(int result, short what, void *arg)
 
 	access_log_write(NULL, "DNS", "Expire", "Expire entry %s\n", dns->name);
 
-	dns_lock();
 	dns_entry_deref(dns);
-	dns_unlock();
 }
 
 static void
@@ -144,9 +142,7 @@ dns_resolv_cb(int result, char type, int count, int ttl,
 		dns_dispatch_requests(entry);
 
 		/* no negative caching */
-		dns_lock();
 		dns_entry_deref(entry);
-		dns_unlock();
 		return;
 	}
 
@@ -158,13 +154,9 @@ dns_resolv_cb(int result, char type, int count, int ttl,
 	memcpy(entry->addresses, addresses, count * sizeof(struct in_addr));
 
 	/* Dispatch requests waiting for the given entry */
-	dns_lock();
 	dns_entry_ref(entry);
-	dns_unlock();
 	dns_dispatch_requests(entry);
-	dns_lock();
 	dns_entry_deref(entry);
-	dns_unlock();
 
 	/* expire it after its time-to-live is over */
 	evtimer_set(&entry->ev_timeout, dns_ttl_expired, entry);
@@ -181,12 +173,9 @@ dns_new(const char *name)
 	struct in_addr address;
 
 	tmp.name = (char *)name;
-	dns_lock();
 	if ((entry = SPLAY_FIND(dns_tree, &root, &tmp)) != NULL) {
-		dns_unlock();
 		return (entry);
 	}
-	dns_unlock();
 
 	entry = calloc(1, sizeof(struct dns_cache));
 	if (entry == NULL)
@@ -199,10 +188,8 @@ dns_new(const char *name)
 
 	TAILQ_INIT(&entry->entries);
 
-	dns_lock();
 	dns_entry_ref(entry);
 	SPLAY_INSERT(dns_tree, &root, entry);
-	dns_unlock();
 
 	if (inet_aton(entry->name, &address) != 1) {
 		access_log_write(NULL, "DNS", "Request",
