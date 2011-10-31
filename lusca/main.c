@@ -34,6 +34,7 @@
 #endif
 
 #include <event2/event.h>
+#include <event2/thread.h>
 #include <event2/http.h>
 #include <event2/buffer.h>
 #include <event2/util.h>
@@ -90,6 +91,10 @@ main(int argc, char **argv)
 	if (signal(SIGPIPE, SIG_IGN) == SIG_ERR)
 		return (1);
 #endif
+
+
+	evthread_use_pthreads();
+	evthread_enable_lock_debuging();
 
 	base = event_base_new();
 	if (!base) {
