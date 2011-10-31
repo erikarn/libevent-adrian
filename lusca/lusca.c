@@ -307,6 +307,25 @@ http_set_response_headers(struct proxy_request *pr)
 	    strncasecmp(content_type, "text/html", 9) == 0;
 }
 
+static int
+lusca_req_has_requestbody(enum evhttp_cmd_type type)
+{
+	switch (type) {
+		case EVHTTP_REQ_POST:
+		case EVHTTP_REQ_PUT:
+		case EVHTTP_REQ_PATCH:
+			return 1;
+		case EVHTTP_REQ_TRACE:
+		case EVHTTP_REQ_GET:
+		case EVHTTP_REQ_HEAD:
+		case EVHTTP_REQ_DELETE:
+		case EVHTTP_REQ_OPTIONS:
+		case EVHTTP_REQ_CONNECT:
+		default:
+			return 0;
+	}
+}
+
 static void
 dispatch_single_request(struct dns_cache *dns, struct proxy_request *pr)
 {
@@ -350,10 +369,10 @@ dispatch_single_request(struct dns_cache *dns, struct proxy_request *pr)
 	    "X-Forwarded-For", pr->req->remote_host);
 
 	/* for post requests, we might have to add the buffer */
-	/* XXX what about other request types w/ request bodies? */
-	if (pr->req->type == EVHTTP_REQ_POST)
+	if (lusca_req_has_requestbody(pr->req->type)) {
 		evbuffer_add_buffer(request->output_buffer,
 		    pr->req->input_buffer);
+	}
 
 	evhttp_add_header(request->output_headers, "Connection", "close");
 	/* We want the reply data chunked */
