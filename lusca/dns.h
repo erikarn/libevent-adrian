@@ -37,6 +37,4 @@ extern void dns_entry_deref(struct dns_cache *entry);
 extern void dns_add_request(struct dns_cache *entry,
     dns_cb_t *cb, void *pr);
 
-extern struct evdns_base *dns_base;
-
 #endif	/* __LUSCA_DNS_H__ */

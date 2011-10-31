@@ -336,8 +336,12 @@ dispatch_single_request(struct dns_cache *dns, struct proxy_request *pr)
 	DEBUG(1, 10) ("%s: pr=%p\n", __func__, pr);
 
 	assert(pr->evcon == NULL);
-	/* XXX dns_base! */
-	pr->evcon = evhttp_connection_base_new(ev_base, dns_base,
+	/*
+	 * There's no need for dns event_base here - we're doing
+	 * lookups ourselves so we can (eventually) throw in pre-processing
+	 * in between lookups and connections.
+	 */
+	pr->evcon = evhttp_connection_base_new(ev_base, NULL,
 	    address, pr->port);
 	access_log_write(pr, "Server", "Connect", "Connecting to %s:%d\n",
 	    address, pr->port);

@@ -45,7 +45,7 @@
 #include "lusca.h"	/* needed for the callback function */
 #include "access_log.h"
 
-struct evdns_base *dns_base = NULL;
+static struct evdns_base *dns_base = NULL;
 struct event_base *dns_ev_base = NULL;
 
 static int
