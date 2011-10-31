@@ -99,6 +99,18 @@ dns_ttl_expired(int result, short what, void *arg)
 }
 
 static void
+dns_dispatch_requests(struct dns_cache *dns)
+{
+	struct dns_request *r;
+
+	while ((r = TAILQ_FIRST(&dns->entries)) != NULL) {
+		TAILQ_REMOVE(&dns->entries, r, next);
+		r->cb(r, r->arg);
+		free(r);
+	}
+}
+
+static void
 dns_resolv_cb(int result, char type, int count, int ttl,
     void *addresses, void *arg)
 {
@@ -181,6 +193,35 @@ dns_new(const char *name)
 
 	return (entry);
 }
+
+void
+dns_add_request(struct dns_cache *entry, dns_cb_t *cb, void *arg)
+{
+        struct dns_request *r;
+
+        r = calloc(1, sizeof(*r));
+        if (r == NULL)
+                err(1, "calloc");
+
+        r->entry = entry;
+
+        r->arg = arg;
+        r->cb = cb;
+
+        TAILQ_INSERT_TAIL(&entry->entries, r, next);
+
+        /* still waiting for resolution */
+        if (entry->address_count == 0)
+                return;
+
+        /*
+         * XXX this shouldn't be here; but until we're
+         * using the evthr stuff for DNS, this will have
+         * to do.
+         */
+        dns_dispatch_requests(entry);
+}
+
 
 void
 dns_free(struct dns_cache *entry)

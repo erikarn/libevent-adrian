@@ -1,11 +1,15 @@
 #ifndef	__LUSCA_DNS_H__
 #define	__LUSCA_DNS_H__
 
+struct dns_request;
+
+typedef void dns_cb_t (struct dns_request *r, void *arg);
+
 struct dns_request {
 	struct dns_cache *entry;
 	TAILQ_ENTRY(dns_request) (next);
 	void *arg;
-	void (*cb)(struct dns_request *r, void *arg);
+	dns_cb_t *cb;
 };
 
 struct dns_cache {
@@ -27,6 +31,8 @@ extern void dns_unlock(void);
 
 extern void dns_entry_lock(struct dns_cache *entry);
 extern void dns_entry_unlock(struct dns_cache *entry);
+extern void dns_add_request(struct dns_cache *entry,
+    dns_cb_t *cb, void *pr);
 
 extern struct evdns_base *dns_base;
 

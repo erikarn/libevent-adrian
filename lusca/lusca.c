@@ -399,41 +399,6 @@ dns_dispatch_cb(struct dns_request *r, void *arg)
 	dispatch_single_request(r->entry, req);
 }
 
-void
-dns_dispatch_requests(struct dns_cache *dns)
-{
-	struct dns_request *r;
-
-	while ((r = TAILQ_FIRST(&dns->entries)) != NULL) {
-		TAILQ_REMOVE(&dns->entries, r, next);
-		r->cb(r, r->arg);
-		free(r);
-	}
-}
-
-static void
-request_add_dns(struct dns_cache *entry, struct proxy_request *pr)
-{
-	struct dns_request *r;
-
-	r = calloc(1, sizeof(*r));
-	if (r == NULL)
-		err(1, "calloc");
-
-	r->entry = entry;
-
-	r->arg = pr;
-	r->cb = dns_dispatch_cb;
-
-	TAILQ_INSERT_TAIL(&entry->entries, r, next);
-
-	/* still waiting for resolution */
-	if (entry->address_count == 0)
-		return;
-
-	dns_dispatch_requests(entry);
-}
-
 /*
  * Receive all possible requests - analyze them for doing stuff
  */
@@ -468,7 +433,7 @@ request_handler(struct evhttp_request *request, void *arg)
 	pr = proxy_request_new(request, port, uri);
 	access_log_write(pr, "Client", "Request", "for %s from %s\n",
 	    request->uri, request->remote_host);
-	request_add_dns(entry, pr);
+	dns_add_request(entry, dns_dispatch_cb, pr);
 }
 
 struct proxy_request *
