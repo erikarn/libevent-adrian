@@ -42,6 +42,9 @@
 #include "dns.h"
 #include "logging.h"
 
+#include "lusca_request.h"
+#include "access_log.h"
+
 #include "lusca.h"
 
 /* tell our callers that the name could not be resolved */
@@ -212,6 +215,7 @@ http_request_complete(struct evhttp_request *req, void *arg)
 		http_request_first_chunk(req, pr);
 
 	evhttp_send_reply_end(pr->req);
+	access_log_write(pr, "Server", "Response", "Completed\n");
 
 	/* We're now done, so free the connection side */
 	proxy_request_free(pr);
@@ -272,6 +276,7 @@ http_send_reply(const char *result, void *arg)
 
 	DEBUG(1, 10) ("%s: pr=%p\n", __func__, pr);
 
+	access_log_write(pr, "Client", "Error", "Error: %s\n", result);
 	/* Setup response headers */
 	http_set_response_headers(pr);
 
@@ -315,7 +320,8 @@ dispatch_single_request(struct dns_cache *dns, struct proxy_request *pr)
 	/* XXX dns_base! */
 	pr->evcon = evhttp_connection_base_new(ev_base, dns_base,
 	    address, pr->port);
-	DEBUG(1, 1) ("[NET] Connecting %s:%d\n", address, pr->port);
+	access_log_write(pr, "Server", "Connect", "Connecting to %s:%d\n",
+	    address, pr->port);
 	if (pr->evcon == NULL)
 		goto fail;
 
@@ -419,17 +425,20 @@ request_handler(struct evhttp_request *request, void *arg)
 
 	/* now insert the request into our status object */
 	referer = evhttp_find_header(request->input_headers, "Referer");
-	DEBUG(1, 1) ("[URL] Request for %s from %s\n",
-	    request->uri, request->remote_host);
 
 	if ((entry = dns_new(host)) == NULL) {
 		DEBUG(1, 1) ("[PRIVATE] Attempt to visit private IP: %s\n",
 		    request->uri);
 		inform_error(request,
 		    HTTP_BADREQUEST, "Access to private IP disallowed.");
+		access_log_write(NULL, "Client", "Request",
+		    "Request for %s from %s: failed\n",
+		    request->uri, request->remote_host);
 		return;
 	}
 	pr = proxy_request_new(request, port, uri);
+	access_log_write(pr, "Client", "Request", "for %s from %s\n",
+	    request->uri, request->remote_host);
 	request_add_dns(entry, pr);
 }
 
