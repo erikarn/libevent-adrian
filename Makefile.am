@@ -95,7 +95,7 @@ EXTRA_DIST = \
 	Makefile.nmake test/Makefile.nmake \
 	$(PLATFORM_DEPENDENT_SRC)
 
-LIBEVENT_LIBS_LA = libevent.la libevent_core.la libevent_extra.la
+LIBEVENT_LIBS_LA = libevent.la libevent_core.la libevent_extra.la libevent_evthr.la
 if PTHREADS
 LIBEVENT_LIBS_LA += libevent_pthreads.la
 LIBEVENT_PKGCONFIG += libevent_pthreads.pc
@@ -202,6 +202,10 @@ libevent_pthreads_la_SOURCES = evthread_pthread.c
 libevent_pthreads_la_LIBADD = $(MAYBE_CORE)
 libevent_pthreads_la_LDFLAGS = $(GENERIC_LDFLAGS)
 endif
+
+libevent_evthr_la_SOURCES = evthr.c
+libevent_evthr_la_LIBADD = $(MAYBE_CORE)
+libevent_evthr_la_LDFLAGS = $(GENERIC_LDFLAGS)
 
 libevent_extra_la_SOURCES = $(EXTRA_SRC)
 libevent_extra_la_LIBADD = $(MAYBE_CORE) $(SYS_LIBS)
