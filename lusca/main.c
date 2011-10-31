@@ -113,6 +113,8 @@ main(int argc, char **argv)
 
 	ev = evsignal_new(base, SIGTERM, signal_sigterm, base);
 	event_add(ev, NULL);
+	ev = evsignal_new(base, SIGINT, signal_sigterm, base);
+	event_add(ev, NULL);
 
 	/* Now we tell the evhttp what port to listen on */
 	handle = evhttp_bind_socket_with_handle(http, "0.0.0.0", port);
