@@ -126,8 +126,12 @@ dns_new(const char *name)
 	struct in_addr address;
 
 	tmp.name = (char *)name;
-	if ((entry = SPLAY_FIND(dns_tree, &root, &tmp)) != NULL)
+	dns_lock();
+	if ((entry = SPLAY_FIND(dns_tree, &root, &tmp)) != NULL) {
+		dns_lock();
 		return (entry);
+	}
+	dns_unlock();
 
 	entry = calloc(1, sizeof(struct dns_cache));
 	if (entry == NULL)
