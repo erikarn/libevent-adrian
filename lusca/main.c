@@ -66,12 +66,21 @@
 
 char uri_root[512];
 
+static void
+signal_sigterm(evutil_socket_t sig, short what, void *arg)
+{
+	struct event_base *evbase = arg;
+
+	event_base_loopbreak(evbase);
+}
+
 int
 main(int argc, char **argv)
 {
 	struct event_base *base;
 	struct evhttp *http;
 	struct evhttp_bound_socket *handle;
+	struct event *ev;
 
 	unsigned short port = 3128;
 #ifdef _WIN32
@@ -101,6 +110,9 @@ main(int argc, char **argv)
 	/* We want to accept arbitrary requests, so we need to set a "generic"
 	 * cb.  We can also add callbacks for specific paths. */
 	evhttp_set_gencb(http, request_handler, NULL);
+
+	ev = evsignal_new(base, SIGTERM, signal_sigterm, base);
+	event_add(ev, NULL);
 
 	/* Now we tell the evhttp what port to listen on */
 	handle = evhttp_bind_socket_with_handle(http, "0.0.0.0", port);
@@ -150,6 +162,7 @@ main(int argc, char **argv)
 
 	event_base_dispatch(base);
 
+	fprintf(stderr, "Exiting.\n");
 	lusca_shutdown();
 
 	return 0;
