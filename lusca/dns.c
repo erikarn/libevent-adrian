@@ -138,10 +138,12 @@ dns_new(const char *name)
 		err(1, "calloc");
 
 	entry->name = strdup(name);
+	pthread_mutex_init(&entry->entry_lock, NULL);
 	if (entry->name == NULL)
 		err(1, "strdup");
 
 	TAILQ_INIT(&entry->entries);
+
 	dns_lock();
 	SPLAY_INSERT(dns_tree, &root, entry);
 	dns_unlock();
@@ -164,6 +166,7 @@ void
 dns_free(struct dns_cache *entry)
 {
 	SPLAY_REMOVE(dns_tree, &root, entry);
+	pthread_mutex_destroy(&entry->entry_lock);
 	free(entry->addresses);
 	free(entry->name);
 	free(entry);

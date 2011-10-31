@@ -3,6 +3,7 @@
 
 struct dns_cache {
 	SPLAY_ENTRY(dns_cache) node;
+	pthread_mutex_t entry_lock;
 	char *name;
 	TAILQ_HEAD(requestqueue, proxy_request) entries;
 	struct in_addr *addresses;
