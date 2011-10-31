@@ -40,7 +40,9 @@
 #include "log.h"
 #include "utils.h"
 #include "dns.h"
+#include "lusca_request.h"
 #include "lusca.h"	/* needed for the callback function */
+#include "access_log.h"
 
 /* globals */
 static int allow_private_ip = 1;
@@ -64,7 +66,7 @@ dns_ttl_expired(int result, short what, void *arg)
 {
 	struct dns_cache *dns = arg;
 	
-	DEBUG(1, 1) ("[DNS] Expire entry for %s\n", dns->name);
+	access_log_write(NULL, "DNS", "Expire", "Expire entry %s\n", dns->name);
 
 	assert(TAILQ_FIRST(&dns->entries) == NULL);
 	dns_free(dns);
@@ -77,8 +79,8 @@ dns_resolv_cb(int result, char type, int count, int ttl,
 	struct dns_cache *entry = arg;
 	struct timeval tv;
 
-	DEBUG(1, 1) ("[DNS] Received response for %s: %d\n",
-		entry->name, result);
+	access_log_write(NULL, "DNS", "Response", "%s: result code = %d\n",
+	    entry->name, result);
 
 	if (result != DNS_ERR_NONE) {
 		/* we were not able to resolve the name */
@@ -127,8 +129,8 @@ dns_new(const char *name)
 	SPLAY_INSERT(dns_tree, &root, entry);
 
 	if (inet_aton(entry->name, &address) != 1) {
-		DEBUG(1, 1) ("[DNS] Resolving IPv4 for %s\n",
-			entry->name);
+		access_log_write(NULL, "DNS", "Request",
+		    "Resolving IPv4 for %s\n", entry->name);
 		evdns_base_resolve_ipv4(dns_base, entry->name, 0,
 		    dns_resolv_cb, entry);
 	} else {
