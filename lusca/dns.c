@@ -88,13 +88,19 @@ dns_entry_unlock(struct dns_cache *entry)
 void
 dns_entry_ref(struct dns_cache *entry)
 {
+	access_log_write(NULL, "DNS", "Ref", "%d -> %d\n",
+	    entry->ref, entry->ref+1);
 	entry->ref++;
 }
 
 void
 dns_entry_deref(struct dns_cache *entry)
 {
+	access_log_write(NULL, "DNS", "Deref", "%d -> %d\n",
+	    entry->ref, entry->ref-1);
 	entry->ref--;
+	if (entry->ref == 0)
+		dns_free(entry);
 }
 
 static void
@@ -105,8 +111,7 @@ dns_ttl_expired(int result, short what, void *arg)
 	access_log_write(NULL, "DNS", "Expire", "Expire entry %s\n", dns->name);
 
 	dns_lock();
-	assert(TAILQ_FIRST(&dns->entries) == NULL);
-	dns_free(dns);
+	dns_entry_deref(dns);
 	dns_unlock();
 }
 
@@ -140,7 +145,7 @@ dns_resolv_cb(int result, char type, int count, int ttl,
 
 		/* no negative caching */
 		dns_lock();
-		dns_free(entry);
+		dns_entry_deref(entry);
 		dns_unlock();
 		return;
 	}
@@ -153,7 +158,13 @@ dns_resolv_cb(int result, char type, int count, int ttl,
 	memcpy(entry->addresses, addresses, count * sizeof(struct in_addr));
 
 	/* Dispatch requests waiting for the given entry */
+	dns_lock();
+	dns_entry_ref(entry);
+	dns_unlock();
 	dns_dispatch_requests(entry);
+	dns_lock();
+	dns_entry_deref(entry);
+	dns_unlock();
 
 	/* expire it after its time-to-live is over */
 	evtimer_set(&entry->ev_timeout, dns_ttl_expired, entry);
@@ -189,6 +200,7 @@ dns_new(const char *name)
 	TAILQ_INIT(&entry->entries);
 
 	dns_lock();
+	dns_entry_ref(entry);
 	SPLAY_INSERT(dns_tree, &root, entry);
 	dns_unlock();
 
@@ -238,6 +250,10 @@ dns_add_request(struct dns_cache *entry, dns_cb_t *cb, void *arg)
 void
 dns_free(struct dns_cache *entry)
 {
+	access_log_write(NULL, "DNS", "Free", "ref=%d\n", entry->ref);
+	assert(entry->ref == 0);
+	assert(TAILQ_FIRST(&entry->entries) == NULL);
+
 	SPLAY_REMOVE(dns_tree, &root, entry);
 	pthread_mutex_destroy(&entry->entry_lock);
 	free(entry->addresses);
