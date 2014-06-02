@@ -331,6 +331,8 @@ kq_dispatch(struct event_base *base, struct timeval *tv)
 			/* Can occur for reasons not fully understood
 			 * on FreeBSD. */
 			case EINVAL:
+			case ENOTCAPABLE:
+				/* XXX not sure why? */
 				continue;
 
 			/* Can occur on a delete if the fd is closed. */
